@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Sensitive info
+data/
+notebooks/data_exploration.ipynb
