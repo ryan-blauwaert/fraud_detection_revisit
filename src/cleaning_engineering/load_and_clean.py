@@ -4,30 +4,39 @@ import numpy as np
 # from email_provider import create_email_provider_columns
 # from top_level_domain import create_tld_columns
 # from country_columns import create_country_columns
-from dummies_by_criteria import dummies_bc
+# from dummies_by_criteria import dummies_bc
 
-def load_and_drop(apply_dummies=True):
-    data = pd.read_json('../../data/data.json')
-    data.drop(columns=['approx_payout_date', 'gts', 'num_order', 'num_payouts', 'sale_duration2'], inplace=True)
-    data['is_fraud'] = data['acct_type'].str.contains('fraud')
-    for col in data.columns:
-        data[col].loc[data[col]==''] = np.nan
-    data.drop(columns='acct_type', inplace=True)
+def load_and_drop(apply_dummies=False):
+    df = pd.read_json('../../data/data.json')
+    df['is_fraud'] = df['acct_type'].str.contains('fraud')
+    df.drop(columns=['approx_payout_date', 'gts', 'num_order', 'num_payouts', 'sale_duration2'], inplace=True)
+    for col in df.columns:
+        df[col].loc[df[col]==''] = np.nan
+    df.drop(columns='acct_type' , inplace=True)
 
-    data['email_provider'] = data['email_domain'].apply(lambda x: email_provider(x))
-    data['distinct_top_level_domain'] = data['email_domain'].apply(lambda x: seperate_tld(x))
-    data['combined_tld'] = data['email_domain'].apply(lambda x: combined_tld(x))
-    data['country'].loc[pd.isnull(data['country'])] = 'NO_COUNTRY'
-    data['matching_country_venue_country'] = data.apply(lambda x: matching_country_venue_country(x), axis=1)
+    df['email_provider'] = df['email_domain'].apply(lambda x: email_provider(x))
+    df['distinct_top_level_domain'] = df['email_domain'].apply(lambda x: seperate_tld(x))
+    df['combined_tld'] = df['email_domain'].apply(lambda x: combined_tld(x))
+    df['country'].loc[pd.isnull(df['country'])] = 'NO_COUNTRY'
+    df['matching_country_venue_country'] = df.apply(lambda x: matching_country_venue_country(x), axis=1)
 
+    boolean_cols = ['has_header', 'has_analytics', 'has_logo']
+    for col in boolean_cols:
+        df[col].fillna(0, inplace=True)
+    df['len_description'] = df['description'].str.len()
+    df['num_previous_payouts'] = df['previous_payouts'].apply(lambda x: len(x))
+    df['has_org_desc'] = df['org_desc'].isnull() == False
+    df['has_payee_name'] = df['payee_name'].isnull() == False
+    df['user_created_to_event_start'] = df['event_start'] - df['user_created']
+    df 
     if apply_dummies:
-        data = dummies_bc(data, category='provider', distinct_dummy_thresh=200, considered_min=5, lower_thresh=20, upper_thresh=80)
-        data = dummies_bc(data, category='combined_tld', distinct_dummy_thresh=200, considered_min=5, lower_thresh=20, upper_thresh=80)
-        data = dummies_bc(data, category='distinct_tld', distinct_dummy_thresh=200, considered_min=5, lower_thresh=20, upper_thresh=80)
-        data = dummies_bc(data, category='country', distinct_dummy_thresh=200, considered_min=5, lower_thresh=20, upper_thresh=80)
+        df = dummies_bc(df, category='provider', distinct_dummy_thresh=200, considered_min=5, lower_thresh=20, upper_thresh=80)
+        df = dummies_bc(df, category='combined_tld', distinct_dummy_thresh=200, considered_min=5, lower_thresh=20, upper_thresh=80)
+        df = dummies_bc(df, category='distinct_tld', distinct_dummy_thresh=200, considered_min=5, lower_thresh=20, upper_thresh=80)
+        df = dummies_bc(df, category='country', distinct_dummy_thresh=200, considered_min=5, lower_thresh=20, upper_thresh=80)
 
-        # data = create_country_columns(data)
-    return data
+        # df = create_country_columns(df)
+    return df
 
 
 def email_provider(x):
@@ -59,10 +68,12 @@ def matching_country_venue_country(x):
         return 0
 
 if __name__=="__main__":
-    data = load_and_drop(True)
-    data.to_csv('../../data/dummy_testing.csv')
-    # vc = data['email_provider'].value_counts()
-    # data
+    df = load_and_drop(False)
+    print(df.head())
+    print(df.info())
+    df.to_csv('../../data/data_columns_added.csv')
+    # vc = df['email_provider'].value_counts()
+    # df
 
 
 

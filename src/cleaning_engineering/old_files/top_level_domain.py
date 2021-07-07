@@ -114,3 +114,24 @@ def high_risk_tld(x):
             break
     return result 
 
+# DISTINCT
+# {'com': 9646,
+#  'org': 2225,
+#  'uk': 1110,
+#  'co': 755,
+#  'au': 454,
+#  'net': 447,
+#  'ca': 430,
+#  'edu': 320}
+# {'on': 17,
+#  'cnc': 20,
+#  'ly': 63,
+#  'ie': 30,
+#  'coop': 15,
+#  'nl': 19,
+#  'gov': 61,
+#  'nz': 39,
+#  'ac': 70,
+#  'us': 46,
+#  'fr': 75,
+#  'vn': 10}
