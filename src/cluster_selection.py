@@ -6,7 +6,9 @@ from feature_selection import cv
 from xgboost import XGBClassifier
 import pandas as pd 
 
-def create_cluster_dummies(model, X, y, stop, analysis_type='provider'):
+
+
+def cluster_dummy_results(model, stop, analysis_type='provider'):
     if analysis_type == 'provider':
         apply_col = 'email_provider'
     elif analysis_type == 'distinct_tld':
@@ -17,7 +19,6 @@ def create_cluster_dummies(model, X, y, stop, analysis_type='provider'):
         apply_col = 'country'
 
     analysis_matrix, labels = load_analysis(category=analysis_type)
-
     result = pd.DataFrame(columns=['K', 'roc', 'brier', 'f1'], index = list(range(stop-1)))
 
     for idx, num in enumerate(range(2, stop+1)):
@@ -46,6 +47,14 @@ def distinct_tld_apply(x, lst):
     return 0 
 
 def prep_primary_data(analysis_type = 'provider'):
+    """loads the dataset and drops columns based on the analysis being done
+
+    Args:
+        analysis_type (str, optional): type of analysis being done. Defaults to 'provider'.
+
+    Returns:
+        X, y: features, target
+    """    
     X, y = load_data(False, True)
     X.drop(columns=['currency','len_description', 'has_org_desc'], inplace=True)
     if analysis_type == 'provider':
@@ -61,6 +70,37 @@ def prep_primary_data(analysis_type = 'provider'):
 
 
 
+
+
+
+def create_cluster_dummy_df(provider_K=18, tld_K=13, countr_K=27):
+    p_analysis_matrix, p_labels = load_analysis(category='provider')
+    t_analysis_matrix, t_labels = load_analysis(category='combined_tld')
+    c_analysis_matrix, c_labels = load_analysis(category='country')
+    matrix_lst = [p_analysis_matrix, t_analysis_matrix, c_analysis_matrix]
+    label_lst = [p_labels, t_labels, c_labels]
+    K_lst = [provider_K, tld_K, countr_K]
+    dic_lst = []
+    apply_col_lst = ['email_provider', 'combined_tld', 'country' ]
+    X.drop(columns=['currency', 'distinct_top_level_domain'], inplace=True)
+
+    for mat, lab, K_val in zip(matrix_lst, label_lst, K_lst):
+        km = KMeans(K_val)
+        km.fit(mat)
+        dic = defaultdict(list)
+        for cluster, label in zip(km.labels_, lab.values):
+            dic[cluster].append(label[0])
+        dic_lst.append(dic)
+    
+    for dic, apply_col in zip(dic_lst, apply_col_lst):
+        for clstr_grp in range(len(dic)):
+            X[f'{apply_col}_clstr_{clstr_grp}'] = X[apply_col].apply(lambda x: 1 if x in dic[clstr_grp] else 0)
+        X.drop(columns=apply_col,inplace=True)
+    return X, y 
+
+
+
+
 if __name__=="__main__":
     xgb = XGBClassifier(base_score=0.5, booster='gbtree', colsample_bylevel=1,
                 colsample_bynode=1, colsample_bytree=0.6, eval_metric='logloss',
@@ -72,23 +112,10 @@ if __name__=="__main__":
                 scale_pos_weight=1, subsample=0.8, tree_method='exact',
                 validate_parameters=1, verbosity=None)
 
-    X, y = prep_primary_data('distinct_tld')
-    # print(X.info())
-    # provider, provider_labels = load_analysis(category='provider')
 
-    # km = KMeans(5)
-    # km.fit(provider)
-    # dic = defaultdict(list)
-    # for cluster, label in zip(km.labels_, provider_labels.values):
-    #     dic[cluster].append(label[0])
-    # for clstr_grp in range(len(dic)):
-    #     X[f'provider_clstr_{clstr_grp}'] = X['email_provider'].apply(lambda x: 1 if x in dic[clstr_grp] else 0)
-    # X.drop(columns='email_provider', inplace=True)
-    # print(cv(xgb, X, y))
+    # result = cluster_dummy_results(xgb, 4, 'distinct_tld')
+    # result.to_csv('../data/cluster_csvs/distinct_tld_cluster_results.csv')
 
-    result = create_cluster_dummies(xgb, X, y, 40, 'distinct_tld')
-    print(result.head())
-    result.to_csv('../data/cluster_csvs/distinct_tld_cluster_results.csv')
-    # for num in range(2, 5+1):
-    #     print(num)
-    # print(list(range(2,5+1)))
+    X, y = create_cluster_dummy_df()
+    print(cv(xgb,X,y))
+
